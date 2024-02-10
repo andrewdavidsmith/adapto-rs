@@ -36,45 +36,60 @@ use rust_htslib::tpool::ThreadPool;
 
 /// Just the naive algorithm for string matching with bounded
 /// mismatches.
-fn naive_matching(
-    adaptor: &[u8],
-    read: &[u8],
-    m: usize,
-    min_frac: f32,
-    min_letters: usize,
-) -> usize {
+fn naive_matching(adaptor: &[u8], read: &[u8], min_frac: f64, min_ltrs: usize) -> usize {
     let n = adaptor.len();
-    let i_lim = m + 1 - min_letters;
-    for i in 0..i_lim {
-        let j_lim = min(m - i, n as usize);
-        let min_match = (min_frac * j_lim as f32).ceil() as usize;
-        let d_max = j_lim - min_match;
+    let m = read.len();
+    let d_delta = 1f64 - min_frac;
+
+    let i_lim1 = if n > m { 0 } else { m + 1 - n };
+    // let min_match = (min_frac * n as f64).ceil() as usize;
+    let mut d_max = n as f64 * d_delta;
+    for i in 0..i_lim1 {
         let mut d: usize = 0;
         let mut j: usize = 0;
-        while d <= d_max && j < j_lim {
+        while d <= d_max as usize && j < n {
             if read[i + j] != adaptor[j] {
                 d += 1;
             }
             j += 1;
         }
-        if d <= d_max {
+        if d <= d_max as usize {
             return i;
         }
+    }
+
+    let i_lim2 = m + 1 - min_ltrs;
+    let mut j_lim = m - i_lim1;
+    for i in i_lim1..i_lim2 {
+        d_max -= d_delta;
+        let mut d: usize = 0;
+        let mut j: usize = 0;
+        while d <= d_max as usize && j < j_lim {
+            if read[i + j] != adaptor[j] {
+                d += 1;
+            }
+            j += 1;
+        }
+        if d <= d_max as usize {
+            return i;
+        }
+        j_lim -= 1;
     }
     m
 }
 
 /// Find the positions in the read of the first non-N and last non-N.
 fn trim_n_ends(read: &[u8]) -> (usize, usize) {
-    let start = match read.iter().position(|&x| x != b'N') {
-        Some(x) => x,
-        _ => 0,
-    };
-    let stop = match read.iter().rposition(|&x| x != b'N') {
-        Some(x) => x + 1,
-        _ => 0,
-    };
-    (start, stop)
+    (
+        match read.iter().position(|&x| x != b'N') {
+            Some(x) => x,
+            _ => 0,
+        },
+        match read.iter().rposition(|&x| x != b'N') {
+            Some(x) => x + 1,
+            _ => 0,
+        },
+    )
 }
 
 /// Find the positions in the read where quality scores indicate the
@@ -151,21 +166,21 @@ fn next_line(buf: &mut [u8], filled: usize, offset: usize) -> usize {
 /// strings.
 #[derive(Default)]
 struct FQRec {
-    n: usize,     // start of "name"
-    r: usize,     // start of "read"
-    o: usize,     // start of "other"
-    q: usize,     // start of "quality" scores
-    e: usize,     // end of the record
-    start: usize, // where good part of seq starts
-    stop: usize,  // where good part of seq stops
+    n: usize, // start of "name"
+    r: usize, // start of "read"
+    o: usize, // start of "other"
+    q: usize, // start of "quality" scores
+    e: usize, // end of the record
+              // start: usize, // where good part of seq starts
+              // stop: usize,  // where good part of seq stops
 }
 
 impl std::fmt::Display for FQRec {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
-            "@={}, seq={}, +={}, qual={}, end={}, start={}, stop={}",
-            self.n, self.r, self.o, self.q, self.e, self.start, self.stop
+            "@={}, seq={}, +={}, qual={}, end={}",
+            self.n, self.r, self.o, self.q, self.e
         )
     }
 }
@@ -175,30 +190,29 @@ impl FQRec {
         &mut self,
         adaptor: &[u8],
         cutoff: u8,
-        min_frac: f32,
-        min_letters: usize,
+        min_frac: f64,
+        min_ltrs: usize,
         buf: &Vec<u8>,
     ) {
-        let seqlen = self.stop;
+        let seqlen = if self.r < self.o {
+            self.o - self.r - 1
+        } else {
+            0
+        };
         let (qstart, qstop) = qual_trim(&buf[self.q..self.q + seqlen], 0, cutoff as i32);
         // consecutive N values at both ends
         let (nstart, nstop) = trim_n_ends(&buf[self.r..self.r + seqlen]);
         // so no N or low qual bases can interfere with adaptor
-        self.stop = min(qstop, nstop);
+        let mut stop = min(qstop, nstop);
 
         // find the adaptor at the 3' end
-        let adaptor_start = naive_matching(
-            adaptor,
-            &buf[self.r..self.r + seqlen],
-            self.stop,
-            min_frac,
-            min_letters,
-        );
+        let adaptor_start =
+            naive_matching(adaptor, &buf[self.r..self.r + stop], min_frac, min_ltrs);
 
-        self.stop = min(self.stop, adaptor_start);
-        let (_, nstop) = trim_n_ends(&buf[self.r..self.r + self.stop]);
-        self.stop = min(self.stop, nstop);
-        self.start = min(max(qstart, nstart), self.stop);
+        stop = min(stop, adaptor_start);
+        let (_, nstop) = trim_n_ends(&buf[self.r..self.r + stop]);
+        stop = min(stop, nstop);
+        let start = min(max(qstart, nstart), stop);
 
         /* ADS: Removing the comments in the next two lines breaks up
          * this function, which would allow the work to be done in two
@@ -207,37 +221,53 @@ impl FQRec {
         // }
         // fn compress(&mut self, buf: &Vec<u8>) {
 
-        let b = buf.as_ptr() as *mut u8;
-        let r_sz = self.stop - self.start;
-        unsafe {
-            ptr::copy(b.add(self.r + self.start), b.add(self.r), r_sz);
-            *b.add(self.r + r_sz) = b'\n';
-        }
-        let o = self.r + r_sz + 1;
-        let o_sz = 2; // self.q - self.o; /* removing "header" after "+" */
-        unsafe {
-            // removing the "header" after the "+"
-            *b.add(o) = b'+';
-            *b.add(o + 1) = b'\n';
-            /* ADS: the code above simulates the code below, since the
-             * second header line in a record is kept empty in our
-             * output anyway.
-             */
-            // ptr::copy(b.add(self.o), b.add(o), o_sz);
-            // assert!(*b.add(o + o_sz - 1) == b'\n');
-            // *b.add(o + o_sz - 1) == b'\n');
-        }
-        self.o = o;
-        let q = self.o + o_sz;
-        unsafe {
-            ptr::copy(b.add(self.q + self.start), b.add(q), r_sz);
-            *b.add(q + r_sz) = b'\n';
-        }
-        self.q = q;
-        self.e = self.q + r_sz + 1;
+        /* ADS: below here, the instance variables other than n and e
+         * become invalidated
+         */
 
-        self.start = 0;
-        self.stop = r_sz;
+        let b = buf.as_ptr() as *mut u8;
+        let r_sz = stop - start;
+
+        // Set cursor just at the end of the read name (first
+        // space/tab/newline)
+        let mut cursor = self.n
+            + match &buf[self.n..self.r].iter().position(|&x| x == b' ') {
+                Some(x) => x,
+                _ => &self.r,
+            };
+        unsafe {
+            *b.add(cursor) = b'\n';
+        }
+        cursor += 1;
+        unsafe {
+            ptr::copy(b.add(self.r + start), b.add(cursor), r_sz);
+        }
+        cursor += r_sz;
+        unsafe {
+            *b.add(cursor) = b'\n';
+        }
+        cursor += 1;
+        unsafe {
+            *b.add(cursor) = b'+';
+        }
+        cursor += 1;
+        unsafe {
+            *b.add(cursor) = b'\n';
+        }
+        cursor += 1;
+        /* ADS: the code above removes the "header" after the '+'
+         * symbol on lines numbered 2 (mod 3)
+         */
+        unsafe {
+            ptr::copy(b.add(self.q + start), b.add(cursor), r_sz);
+        }
+        cursor += r_sz;
+        unsafe {
+            *b.add(cursor) = b'\n';
+        }
+        cursor += 1;
+        self.e = cursor;
+        // postcondition of this function: self.n and self.e are valid
     }
     fn write<W: Write>(&self, buf: &Vec<u8>, writer: &mut W) {
         writer.write(&buf[self.n..self.e]).unwrap();
@@ -254,17 +284,9 @@ fn get_next_record(buf: &mut [u8], cursor: &mut usize, filled: usize) -> FQRec {
     let e = next_line(buf, filled, q);
     if e != usize::MAX {
         *cursor = e;
-        assert!(buf[n] == b'@');
+        debug_assert!(buf[n] == b'@');
     }
-    FQRec {
-        n,
-        r,
-        o,
-        q,
-        e,
-        start: 0,
-        stop: if r < o { o - r - 1 } else { 0 },
-    }
+    FQRec { n, r, o, q, e }
 }
 
 fn process_reads<R: Read, W: Write>(
@@ -273,8 +295,8 @@ fn process_reads<R: Read, W: Write>(
     reader: &mut R,
     mut writer: &mut W,
     cutoff: u8,
-    min_frac: f32,
-    min_letters: usize,
+    min_frac: f64,
+    min_ltrs: usize,
 ) -> Result<(), Box<dyn Error>> {
     let mut buf: Vec<u8> = vec![b'\0'; buffer_size];
     let mut filled = 0usize;
@@ -289,6 +311,9 @@ fn process_reads<R: Read, W: Write>(
         // read the input to fill the buffer
         filled += reader.read(&mut buf[filled..])?;
 
+        // let n = buf.iter().position(|&x| x == b'$').unwrap();
+        // eprintln!("{n}");
+
         // find the sequenced read records
         recs.clear(); // keep capacity
         loop {
@@ -301,7 +326,7 @@ fn process_reads<R: Read, W: Write>(
 
         // find end-points of trimmed reads
         recs.par_iter_mut()
-            .for_each(|fq_rec| fq_rec.process(&adaptor, cutoff, min_frac, min_letters, &buf));
+            .for_each(|fq_rec| fq_rec.process(&adaptor, cutoff, min_frac, min_ltrs, &buf));
 
         /* ADS: could do separately: make record a contiguous chunk */
         // recs.iter_mut().for_each(|x| x.compress(&buf));
@@ -326,8 +351,8 @@ pub fn remove_adaptors(
     input: &String,
     output: &String,
     cutoff: u8,
-    min_frac: f32,
-    min_letters: usize,
+    min_frac: f64,
+    min_ltrs: usize,
 ) -> Result<(), Box<dyn Error>> {
     let lvl = match zip {
         true => CompLvl::Default,
@@ -348,6 +373,6 @@ pub fn remove_adaptors(
         &mut writer,
         cutoff,
         min_frac,
-        min_letters,
+        min_ltrs,
     )
 }

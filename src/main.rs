@@ -31,7 +31,7 @@
 /// decompressing input.
 use clap::Parser;
 use clap_num::number_range;
-use file_format::FileFormat;
+use file_format::FileFormat as FFmt;
 use num_cpus;
 use std::error::Error;
 use std::str::from_utf8;
@@ -49,9 +49,9 @@ fn stringify<T: std::fmt::Display>(e: T) -> String {
     format!("{e}")
 }
 
-fn prob_range(s: &str) -> Result<f32, String> {
-    let val = s.parse::<f32>().map_err(stringify)?;
-    if val >= f32::MIN_POSITIVE && val <= 1.0 {
+fn prob_range(s: &str) -> Result<f64, String> {
+    let val = s.parse::<f64>().map_err(stringify)?;
+    if val >= f64::MIN_POSITIVE && val <= 1.0 {
         Ok(val)
     } else {
         Err(format!("{s} is outside valid range"))
@@ -88,7 +88,7 @@ struct Args {
 
     /// Proportion matching
     #[arg(short = 'r', long = "frac", default_value_t = 0.9, value_parser = prob_range)]
-    min_match_frac: f32,
+    min_match_frac: f64,
 
     /// Minimum overlap of read and adaptor
     #[arg(short, long, default_value_t = 1, value_parser = overlap_range)]
@@ -146,29 +146,27 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     if args.verbose {
-        eprintln!("input file: {}", args.fastq);
-        eprintln!("input format: {}", FileFormat::from_file(&args.fastq)?);
-        eprintln!("output file: {}", args.out);
-        eprintln!("quality score cutoff: {}", args.qual_cutoff);
-        eprintln!("adaptor sequence: {}", from_utf8(&adaptor)?);
-        eprintln!("min overlap to trim: {}", args.min_overlap);
-        eprintln!("min matching fraction: {}", args.min_match_frac);
-        eprintln!("keep prefix: {}", args.keep_prefix);
-        eprintln!("compress output: {}", args.zip);
-        eprintln!("threads requested: {}", args.threads);
-        eprintln!("detected cpu cores: {}", num_cpus::get());
-        eprintln!("buffer size: {}", args.buffer_size);
+        eprintln!("input1: {} [{}]", args.fastq, FFmt::from_file(&args.fastq)?);
+        eprintln!("output1: {}", args.out);
         match (&args.pfastq, &args.pout) {
             (Some(pfastq), Some(pout)) => {
-                eprintln!("input2 file: {}", pfastq);
-                eprintln!("input2 format: {}", FileFormat::from_file(&pfastq)?);
-                eprintln!("output2 file: {}", pout);
+                eprintln!("input2: {} [{}]", pfastq, FFmt::from_file(&pfastq)?);
+                eprintln!("output2: {}", pout);
             }
             (Some(_), None) | (None, Some(_)) => {
                 Err("paired end requires two input and output files")?;
             }
             (None, None) => (),
         }
+        eprintln!("quality cutoff: {}", args.qual_cutoff);
+        eprintln!("adaptor: {}", from_utf8(&adaptor)?);
+        eprintln!("overlap needed: {}", args.min_overlap);
+        eprintln!("match needed: {}", args.min_match_frac);
+        eprintln!("keep prefix: {}", args.keep_prefix);
+        eprintln!("compress output: {}", args.zip);
+        eprintln!("threads requested: {}", args.threads);
+        eprintln!("detected cores: {}", num_cpus::get());
+        eprintln!("buffer size: {}", args.buffer_size);
     }
 
     // Setup the threads for rayon here because this can only be done
