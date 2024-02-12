@@ -311,9 +311,6 @@ fn process_reads<R: Read, W: Write>(
         // read the input to fill the buffer
         filled += reader.read(&mut buf[filled..])?;
 
-        // let n = buf.iter().position(|&x| x == b'$').unwrap();
-        // eprintln!("{n}");
-
         // find the sequenced read records
         recs.clear(); // keep capacity
         loop {
