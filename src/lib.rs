@@ -152,9 +152,9 @@ fn shift(buf: &mut [u8], cursor: &mut usize, filled: &mut usize) {
 /// FQRec is a FASTQ record that represents the position of the start
 /// of the name (n), the start of the read sequence (r), the start of
 /// the other name, the one with the "+" (o), and the start of the
-/// quality scores (q). The `start` and `stop` variables are used to
-/// store the offsets of trimmed ends for the read and quality scores
-/// strings.
+/// quality scores (q). The end of the record (e) is the start of the
+/// next record, but having it in each FQRec allows these to be
+/// processed by independent threads.
 #[derive(Default)]
 struct FQRec {
     n: usize, // start of "name"
@@ -162,8 +162,6 @@ struct FQRec {
     o: usize, // start of "other"
     q: usize, // start of "quality" scores
     e: usize, // end of the record
-              // start: usize, // where good part of seq starts
-              // stop: usize,  // where good part of seq stops
 }
 
 impl std::fmt::Display for FQRec {
