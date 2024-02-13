@@ -149,15 +149,6 @@ fn shift(buf: &mut [u8], cursor: &mut usize, filled: &mut usize) {
     *cursor = 0;
 }
 
-fn next_line(buf: &mut [u8], filled: usize, offset: usize) -> usize {
-    for i in offset..filled {
-        if buf[i] == b'\n' {
-            return i + 1;
-        }
-    }
-    usize::MAX
-}
-
 /// FQRec is a FASTQ record that represents the position of the start
 /// of the name (n), the start of the read sequence (r), the start of
 /// the other name, the one with the "+" (o), and the start of the
@@ -272,6 +263,16 @@ impl FQRec {
     fn write<W: Write>(&self, buf: &Vec<u8>, writer: &mut W) {
         writer.write(&buf[self.n..self.e]).unwrap();
     }
+}
+
+#[inline(always)]
+fn next_line(buf: &mut [u8], filled: usize, offset: usize) -> usize {
+    for i in offset..filled {
+        if buf[i] == b'\n' {
+            return i + 1;
+        }
+    }
+    usize::MAX
 }
 
 #[inline(always)]
