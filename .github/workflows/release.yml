@@ -1,6 +1,7 @@
 name: Release with binaries
 
 on:
+  workflow_dispatch:
   release:
     types: [created]
 
