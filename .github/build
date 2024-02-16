@@ -1,6 +1,6 @@
 #!/bin/bash
 
-apt update && apt install -y cmake
+apt update && apt install -y cmake musl-tools
 curl https://sh.rustup.rs -sSf | sh -s -- -y
 source "$HOME/.cargo/env"
 rustup target add x86_64-unknown-linux-musl
