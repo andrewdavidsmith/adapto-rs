@@ -1,24 +1,15 @@
 on:
-  workflow_dispatch:
   release:
-    types: [created]
+    types: [created, edited]
 
-name: Build binary for release
+name: Build binary and attach to release
 jobs:
   generate:
     name: Create release-artifacts
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        toolchain:
-          - stable
-          - beta
-          - nightly
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@v4
-      - name: Setup
-        run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
+        uses: actions/checkout@master
       - name: Generate the artifacts
         uses: skx/github-action-build@master
       - name: Upload the artifacts
