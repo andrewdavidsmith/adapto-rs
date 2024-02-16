@@ -10,6 +10,8 @@ jobs:
     steps:
       - name: Checkout the repository
         uses: actions/checkout@master
+      - name: Setup
+        run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
       - name: Generate the artifacts
         uses: skx/github-action-build@master
       - name: Upload the artifacts
