@@ -3,6 +3,7 @@ on:
     types: [created, edited]
 
 name: Build binary and attach to release
+run-name: Build binary for ${{ github.ref_name }} and attach to release
 jobs:
   generate:
     name: Create release-artifacts
