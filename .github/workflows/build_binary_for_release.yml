@@ -1,7 +1,7 @@
 on:
   workflow_dispatch:
   release:
-    types: [created]
+    types: [created, edited]
 
 name: Build binary for release
 jobs:
