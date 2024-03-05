@@ -42,7 +42,6 @@ fn naive_matching(adaptor: &[u8], read: &[u8], min_frac: f64, min_ltrs: usize) -
     let d_delta = 1f64 - min_frac;
 
     let i_lim1 = if n > m { 0 } else { m + 1 - n };
-    // let min_match = (min_frac * n as f64).ceil() as usize;
     let mut d_max = n as f64 * d_delta;
     for i in 0..i_lim1 {
         let mut d: usize = 0;
