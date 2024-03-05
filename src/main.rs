@@ -23,12 +23,16 @@
  * SOFTWARE.
  */
 
-/// Program to cut adaptors from sequenced reads. Accepts one adaptor
-/// and will apply it to both ends in paired-end data. Removes Ns at
-/// the end of reads. Removes low quality bases at ends of reads.
-/// Output is compressed as bgzf. Input may be compressed as gz/bgzf
-/// or not. Extra threads help with compressing output and
-/// decompressing input.
+/// adapto-rs is a program to remove adaptor sequences from sequenced
+/// reads. These are assumed to be short reads and may be Illumina or
+/// BGI, or any other technology that behaves similarly. Users can
+/// provide one adaptor and it will be removed from both ends in
+/// paired-end data. A default adaptor is built-in. This program also
+/// removes Ns at the end of reads, and removes low quality bases at
+/// ends of reads. Output can be directly compressed as bgzf. Input
+/// may be compressed as gz/bgzf. Extra threads can be requested to
+/// help accelerate input file decompression or output file
+/// compression.
 use clap::Parser;
 use clap_num::number_range;
 use file_format::FileFormat as FFmt;
