@@ -23,19 +23,10 @@
  * SOFTWARE.
  */
 
-/// adapto-rs is a program to remove adaptor sequences from sequenced
-/// reads. These are assumed to be short reads and may be Illumina or
-/// BGI, or any other technology that behaves similarly. Users can
-/// provide one adaptor and it will be removed from both ends in
-/// paired-end data. A default adaptor is built-in. This program also
-/// removes Ns at the end of reads, and removes low quality bases at
-/// ends of reads. Output can be directly compressed as bgzf. Input
-/// may be compressed as gz/bgzf. Extra threads can be requested to
-/// help accelerate input file decompression or output file
-/// compression.
 use clap::Parser;
 use clap_num::number_range;
 use file_format::FileFormat as FFmt;
+use indoc;
 use num_cpus;
 use std::error::Error;
 use std::str::from_utf8;
@@ -48,7 +39,6 @@ fn overlap_range(s: &str) -> Result<usize, String> {
     number_range(s, 1, 255)
 }
 
-// from clap_num helper for mapping errors to strings
 fn stringify<T: std::fmt::Display>(e: T) -> String {
     format!("{e}")
 }
@@ -62,15 +52,31 @@ fn prob_range(s: &str) -> Result<f64, String> {
     }
 }
 
+static CUSTOM_HELP_FORMAT: &str = indoc::indoc! {"
+{before-help}
+{about-section}
+{usage-heading} {usage}
+
+{all-args}
+
+{name} {version}
+{author-with-newline}{after-help}
+"};
+
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(
+    author = "Andrew D. Smith <andrewds@usc.edu>",
+    version,
+    about,
+    help_template = CUSTOM_HELP_FORMAT,
+    arg_required_else_help = true,
+)]
 struct Args {
     /// Fastq input file
-    #[structopt(required = true)]
     fastq: String,
 
     /// Paired-end input second fastq file
-    #[structopt(required = false)]
+    #[arg(requires = "pout")]
     pfastq: Option<String>,
 
     /// Output file
@@ -78,8 +84,7 @@ struct Args {
     out: String,
 
     /// Second output file for paired-end reads
-    #[structopt(required = false)]
-    #[arg(short, long)]
+    #[arg(short, long, requires = "pfastq")]
     pout: Option<String>,
 
     /// Quality score cutoff
@@ -91,11 +96,13 @@ struct Args {
     adaptor: Option<String>,
 
     /// Proportion matching
-    #[arg(short = 'r', long = "frac", default_value_t = 0.9, value_parser = prob_range)]
+    #[arg(short = 'r', long = "frac", default_value_t = 0.9)]
+    #[arg(value_parser = prob_range)]
     min_match_frac: f64,
 
     /// Minimum overlap of read and adaptor
-    #[arg(short, long, default_value_t = 1, value_parser = overlap_range)]
+    #[arg(short, long, default_value_t = 1)]
+    #[arg(value_parser = overlap_range)]
     min_overlap: usize,
 
     /// Keep all read prefixes (not implemented)
@@ -107,7 +114,8 @@ struct Args {
     zip: bool,
 
     /// Threads to use
-    #[arg(short, long, default_value_t = 1, value_parser = thread_range)]
+    #[arg(short, long, default_value_t = 1)]
+    #[arg(value_parser = thread_range)]
     threads: u32,
 
     /// Buffer size for reading input
