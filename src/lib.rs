@@ -23,6 +23,17 @@
  * SOFTWARE.
  */
 
+//! `adapto-rs` is a program to remove adaptor sequences from
+//! sequenced reads. These are assumed to be short reads and may be
+//! Illumina or BGI, or any other technology that behaves
+//! similarly. Users can provide one adaptor and it will be removed
+//! from both ends in paired-end data. A default adaptor is
+//! built-in. This program also removes Ns at the end of reads, and
+//! removes low quality bases at ends of reads. Output can be directly
+//! compressed as bgzf. Input may be compressed as gz/bgzf. Extra
+//! threads can be requested to help accelerate input file
+//! decompression or output file compression.
+
 use rayon::prelude::*;
 use std::cmp::{max, min};
 use std::error::Error;
@@ -35,7 +46,7 @@ use rust_htslib::bgzf::CompressionLevel as CompLvl;
 use rust_htslib::tpool::ThreadPool;
 
 /// Just the naive algorithm for string matching with bounded
-/// mismatches.
+/// mismatches. I have not tested if this is any kind of bottleneck.
 fn naive_matching(adaptor: &[u8], read: &[u8], min_frac: f64, min_ltrs: usize) -> usize {
     let n = adaptor.len();
     let m = read.len();
