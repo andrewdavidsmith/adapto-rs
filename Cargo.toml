@@ -2,13 +2,18 @@
 name = "adapto-rs"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+categories = ["science", "command-line-utilities"]
+keywords = ["genomics", "sequencing", "dna", "bioinformatics"]
+description = "Remove adaptors from sequenced reads"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "4.2.7", features = ["derive"] }
-rayon = "1.7"
+clap = { version = "4.5.1", features = ["derive"] }
+rayon = { version = "1.7", default-features = false }
 num_cpus = { version = "1.16.0", default-features = false }
 file-format = { version = "0.23.0", default-features = false, features = ["reader-zip", "reader-txt"] }
 rust-htslib = { version = "0.44.1", default-features = false }
-clap-num = "1.1.1"
+clap-num = { version = "1.1.1", default-features = false }
+indoc = { version = "2.0.4", default-features = false }
