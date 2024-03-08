@@ -26,8 +26,6 @@
 use clap::Parser;
 use clap_num::number_range;
 use file_format::FileFormat as FFmt;
-use indoc;
-use num_cpus;
 use std::error::Error;
 use std::str::from_utf8;
 
@@ -52,23 +50,29 @@ fn prob_range(s: &str) -> Result<f64, String> {
     }
 }
 
+
 static CUSTOM_HELP_FORMAT: &str = indoc::indoc! {"
 {before-help}
+{name} {version}
+{author}
 {about-section}
 {usage-heading} {usage}
 
-{all-args}
+{all-args} {after-help}
+"};
 
-{name} {version}
-{author-with-newline}{after-help}
+const AFTER_HELP: &str = indoc::indoc! {"
+Examples:
+adapto-rs -t 4 -o samp_trim_1.fq.gz -p samp_trim_2.fq.gz samp_1.fq samp_2.fq
 "};
 
 #[derive(Parser, Debug)]
-#[command(
+#[clap(
     author = "Andrew D. Smith <andrewds@usc.edu>",
     version,
     about,
     help_template = CUSTOM_HELP_FORMAT,
+    after_help = AFTER_HELP,
     arg_required_else_help = true,
 )]
 struct Args {
