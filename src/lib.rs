@@ -229,10 +229,10 @@ impl FQRec {
 
         // Set cursor just at the end of the read name (first
         // space/tab/newline)
-        let mut cursor = self.n
-            + match &buf[self.n..self.r].iter().position(|&x| x == b' ') {
-                Some(x) => x,
-                _ => &self.r,
+        let mut cursor =
+            match &buf[self.n..(self.r - 1)].iter().position(|&x| x == b' ') {
+                Some(x) => x + self.n,
+                _ => self.r - 1,
             };
         unsafe {
             *b.add(cursor) = b'\n';
